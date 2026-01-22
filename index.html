@@ -46,6 +46,7 @@
   <body>
     <div class="toolbar">
       <div>Score: <span id="score">0</span></div>
+      <div>High Score: <span id="highScore">0</span></div>
       <label>
         Grid
         <input id="gridSize" type="number" min="10" max="20" value="15" />
@@ -62,6 +63,8 @@
       const gridSizeInput = document.getElementById("gridSize");
       const restartBtn = document.getElementById("restartBtn");
       const gameOverEl = document.getElementById("gameOver");
+      const highScoreEl = document.getElementById("highScore");
+      const HIGH_SCORE_KEY = "snakeHighScore";
 
       const state = {
         gridSize: 15,
@@ -71,12 +74,15 @@
         nextDir: { x: 1, y: 0 },
         food: { x: 0, y: 0 },
         score: 0,
+        highScore: 0,
         timerId: null,
         isGameOver: false,
         speedMs: 100,
       };
 
       function initGame() {
+        state.highScore = getStoredHighScore();
+        highScoreEl.textContent = String(state.highScore);
         const size = clampGridSize(parseInt(gridSizeInput.value, 10));
         state.gridSize = size;
         gridSizeInput.value = String(size);
@@ -98,6 +104,7 @@
         state.isGameOver = false;
         gameOverEl.style.display = "none";
         scoreEl.textContent = "0";
+        updateHighScore(0);
         spawnFood();
         startLoop();
         draw();
@@ -136,6 +143,7 @@
         if (next.x === state.food.x && next.y === state.food.y) {
           state.score += 1;
           scoreEl.textContent = String(state.score);
+          updateHighScore(state.score);
           spawnFood();
         } else {
           state.snake.pop();
@@ -229,6 +237,18 @@
       function clampGridSize(value) {
         if (Number.isNaN(value)) return 15;
         return Math.min(20, Math.max(10, value));
+      }
+
+      function getStoredHighScore() {
+        const stored = Number(localStorage.getItem(HIGH_SCORE_KEY));
+        return Number.isFinite(stored) ? stored : 0;
+      }
+
+      function updateHighScore(score) {
+        if (score <= state.highScore) return;
+        state.highScore = score;
+        highScoreEl.textContent = String(score);
+        localStorage.setItem(HIGH_SCORE_KEY, String(score));
       }
 
       gridSizeInput.addEventListener("change", initGame);
