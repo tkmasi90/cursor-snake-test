@@ -10,16 +10,31 @@
       }
       body {
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        margin: 24px;
+        margin: 0;
+        min-height: 100vh;
         display: grid;
         gap: 12px;
-        justify-items: start;
+        padding: 24px;
+        justify-items: center;
+        align-content: center;
       }
-      .toolbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(160px, 220px) auto minmax(120px, 180px);
+        gap: 16px;
         align-items: center;
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-self: start;
+      }
+      .topbar {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        margin-bottom: 8px;
       }
       label {
         display: inline-flex;
@@ -41,7 +56,8 @@
         display: none;
       }
       .scoreboard {
-        margin-top: 8px;
+        margin-top: 16px;
+        text-align: left;
       }
       .scoreboard ol {
         margin: 4px 0 0 18px;
@@ -56,53 +72,61 @@
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <div>Score: <span id="score">0</span></div>
-      <div>High Score: <span id="highScore">0</span></div>
-      <div>Time: <span id="timer">--</span></div>
-      <div id="paused">Paused</div>
-      <label>
-        Grid
-        <input id="gridSize" type="number" min="10" max="20" value="15" />
-      </label>
-      <label>
-        Wrap
-        <input id="wrapMode" type="checkbox" />
-      </label>
-      <label>
-        Obstacles
-        <select id="obstacles">
-          <option value="none">None</option>
-          <option value="box">Box</option>
-          <option value="cross">Cross</option>
-        </select>
-      </label>
-      <label>
-        Theme
-        <select id="theme">
-          <option value="classic">Classic</option>
-          <option value="neon">Neon</option>
-          <option value="mono">Mono</option>
-        </select>
-      </label>
-      <label>
-        Mode
-        <select id="mode">
-          <option value="normal">Normal</option>
-          <option value="time">Time Trial (60s)</option>
-        </select>
-      </label>
-      <label>
-        Mute
-        <input id="mute" type="checkbox" />
-      </label>
-      <button id="restartBtn">Restart</button>
-      <div id="gameOver">Game Over</div>
-    </div>
-    <canvas id="game" width="450" height="450" aria-label="Snake game"></canvas>
-    <div class="scoreboard">
-      <div>Top 5</div>
-      <ol id="scores"></ol>
+    <div class="layout">
+      <div class="panel">
+        <label>
+          Mute
+          <input id="mute" type="checkbox" />
+        </label>
+        <button id="restartBtn">Restart</button>
+        <div id="gameOver">Game Over</div>
+        <div class="scoreboard">
+          <div>Top 5</div>
+          <ol id="scores"></ol>
+        </div>
+      </div>
+      <div>
+        <div class="topbar">
+          <div>Score: <span id="score">0</span></div>
+          <div>High Score: <span id="highScore">0</span></div>
+        </div>
+        <canvas id="game" width="450" height="450" aria-label="Snake game"></canvas>
+      </div>
+      <div class="panel">
+        <div>Time: <span id="timer">--</span></div>
+        <div id="paused">Paused</div>
+        <label>
+          Grid
+          <input id="gridSize" type="number" min="10" max="20" value="15" />
+        </label>
+        <label>
+          Wrap
+          <input id="wrapMode" type="checkbox" />
+        </label>
+        <label>
+          Obstacles
+          <select id="obstacles">
+            <option value="none">None</option>
+            <option value="box">Box</option>
+            <option value="cross">Cross</option>
+          </select>
+        </label>
+        <label>
+          Theme
+          <select id="theme">
+            <option value="classic">Classic</option>
+            <option value="neon">Neon</option>
+            <option value="mono">Mono</option>
+          </select>
+        </label>
+        <label>
+          Mode
+          <select id="mode">
+            <option value="normal">Normal</option>
+            <option value="time">Time Trial (60s)</option>
+          </select>
+        </label>
+      </div>
     </div>
 
     <script>
