@@ -51,6 +51,10 @@
         Grid
         <input id="gridSize" type="number" min="10" max="20" value="15" />
       </label>
+      <label>
+        Wrap
+        <input id="wrapMode" type="checkbox" />
+      </label>
       <button id="restartBtn">Restart</button>
       <div id="gameOver">Game Over</div>
     </div>
@@ -65,6 +69,7 @@
       const gameOverEl = document.getElementById("gameOver");
       const highScoreEl = document.getElementById("highScore");
       const HIGH_SCORE_KEY = "snakeHighScore";
+      const wrapModeInput = document.getElementById("wrapMode");
 
       const state = {
         gridSize: 15,
@@ -75,6 +80,7 @@
         food: { x: 0, y: 0 },
         score: 0,
         highScore: 0,
+        wrapMode: false,
         timerId: null,
         isGameOver: false,
         speedMs: 100,
@@ -131,9 +137,16 @@
 
         state.dir = state.nextDir;
         const head = state.snake[0];
-        const next = { x: head.x + state.dir.x, y: head.y + state.dir.y };
+        let next = { x: head.x + state.dir.x, y: head.y + state.dir.y };
 
-        if (hitsWall(next) || hitsSelf(next)) {
+        if (state.wrapMode) {
+          next = wrapPosition(next);
+        } else if (hitsWall(next)) {
+          endGame();
+          return;
+        }
+
+        if (hitsSelf(next)) {
           endGame();
           return;
         }
@@ -205,6 +218,16 @@
         );
       }
 
+      function wrapPosition(pos) {
+        let x = pos.x;
+        let y = pos.y;
+        if (x < 0) x = state.gridSize - 1;
+        if (x >= state.gridSize) x = 0;
+        if (y < 0) y = state.gridSize - 1;
+        if (y >= state.gridSize) y = 0;
+        return { x, y };
+      }
+
       function hitsSelf(pos) {
         return state.snake.some((seg) => seg.x === pos.x && seg.y === pos.y);
       }
@@ -252,6 +275,9 @@
       }
 
       gridSizeInput.addEventListener("change", initGame);
+      wrapModeInput.addEventListener("change", (event) => {
+        state.wrapMode = event.target.checked;
+      });
       restartBtn.addEventListener("click", reset);
       window.addEventListener("keydown", handleInput);
 
