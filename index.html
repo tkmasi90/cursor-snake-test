@@ -55,6 +55,14 @@
         Wrap
         <input id="wrapMode" type="checkbox" />
       </label>
+      <label>
+        Obstacles
+        <select id="obstacles">
+          <option value="none">None</option>
+          <option value="box">Box</option>
+          <option value="cross">Cross</option>
+        </select>
+      </label>
       <button id="restartBtn">Restart</button>
       <div id="gameOver">Game Over</div>
     </div>
@@ -70,6 +78,7 @@
       const highScoreEl = document.getElementById("highScore");
       const HIGH_SCORE_KEY = "snakeHighScore";
       const wrapModeInput = document.getElementById("wrapMode");
+      const obstaclesInput = document.getElementById("obstacles");
 
       const state = {
         gridSize: 15,
@@ -81,6 +90,8 @@
         score: 0,
         highScore: 0,
         wrapMode: false,
+        obstacleMode: "none",
+        obstacles: [],
         timerId: null,
         isGameOver: false,
         baseSpeedMs: 100,
@@ -116,6 +127,7 @@
         gameOverEl.style.display = "none";
         scoreEl.textContent = "0";
         updateHighScore(0);
+        state.obstacles = buildObstacles(state.obstacleMode);
         spawnFood();
         startLoop();
         draw();
@@ -125,7 +137,10 @@
         const emptyCells = [];
         for (let y = 0; y < state.gridSize; y += 1) {
           for (let x = 0; x < state.gridSize; x += 1) {
-            if (!state.snake.some((seg) => seg.x === x && seg.y === y)) {
+            if (
+              !state.snake.some((seg) => seg.x === x && seg.y === y) &&
+              !state.obstacles.some((obs) => obs.x === x && obs.y === y)
+            ) {
               emptyCells.push({ x, y });
             }
           }
@@ -151,7 +166,7 @@
           return;
         }
 
-        if (hitsSelf(next)) {
+        if (hitsObstacle(next) || hitsSelf(next)) {
           endGame();
           return;
         }
@@ -174,6 +189,7 @@
       function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
+        state.obstacles.forEach((obs) => drawCell(obs, "#6c5ce7"));
         drawCell(state.food, "#e63946");
         state.snake.forEach((seg, idx) => {
           drawCell(seg, idx === 0 ? "#55efc4" : "#00b894");
@@ -251,6 +267,10 @@
         return state.snake.some((seg) => seg.x === pos.x && seg.y === pos.y);
       }
 
+      function hitsObstacle(pos) {
+        return state.obstacles.some((obs) => obs.x === pos.x && obs.y === pos.y);
+      }
+
       function drawGrid() {
         ctx.strokeStyle = "#222";
         for (let i = 0; i <= state.gridSize; i += 1) {
@@ -293,9 +313,42 @@
         localStorage.setItem(HIGH_SCORE_KEY, String(score));
       }
 
+      function buildObstacles(mode) {
+        const obstacles = [];
+        const size = state.gridSize;
+        const mid = Math.floor(size / 2);
+        const add = (x, y) => {
+          if (x < 0 || y < 0 || x >= size || y >= size) return;
+          obstacles.push({ x, y });
+        };
+
+        if (mode === "box") {
+          for (let i = mid - 2; i <= mid + 2; i += 1) {
+            add(i, mid - 2);
+            add(i, mid + 2);
+            add(mid - 2, i);
+            add(mid + 2, i);
+          }
+        } else if (mode === "cross") {
+          for (let i = 2; i < size - 2; i += 1) {
+            add(mid, i);
+            add(i, mid);
+          }
+        }
+
+        return obstacles.filter(
+          (obs) =>
+            !state.snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
+        );
+      }
+
       gridSizeInput.addEventListener("change", initGame);
       wrapModeInput.addEventListener("change", (event) => {
         state.wrapMode = event.target.checked;
+      });
+      obstaclesInput.addEventListener("change", (event) => {
+        state.obstacleMode = event.target.value;
+        reset();
       });
       restartBtn.addEventListener("click", reset);
       window.addEventListener("keydown", handleInput);
