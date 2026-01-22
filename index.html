@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        margin: 24px;
+        display: grid;
+        gap: 12px;
+        justify-items: start;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      label {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      canvas {
+        border: 2px solid #444;
+        background: #111;
+      }
+      #gameOver {
+        color: #c00;
+        font-weight: 600;
+        display: none;
+      }
+      button {
+        padding: 4px 10px;
+      }
+      input[type="number"] {
+        width: 64px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <div>Score: <span id="score">0</span></div>
+      <label>
+        Grid
+        <input id="gridSize" type="number" min="10" max="20" value="15" />
+      </label>
+      <button id="restartBtn">Restart</button>
+      <div id="gameOver">Game Over</div>
+    </div>
+    <canvas id="game" width="450" height="450" aria-label="Snake game"></canvas>
+
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const scoreEl = document.getElementById("score");
+      const gridSizeInput = document.getElementById("gridSize");
+      const restartBtn = document.getElementById("restartBtn");
+      const gameOverEl = document.getElementById("gameOver");
+
+      const state = {
+        gridSize: 15,
+        cellSize: 30,
+        snake: [],
+        dir: { x: 1, y: 0 },
+        nextDir: { x: 1, y: 0 },
+        food: { x: 0, y: 0 },
+        score: 0,
+        timerId: null,
+        isGameOver: false,
+        speedMs: 100,
+      };
+
+      function initGame() {
+        const size = clampGridSize(parseInt(gridSizeInput.value, 10));
+        state.gridSize = size;
+        gridSizeInput.value = String(size);
+        state.cellSize = Math.floor(450 / size);
+        canvas.width = state.cellSize * size;
+        canvas.height = state.cellSize * size;
+        reset();
+      }
+
+      function reset() {
+        state.snake = [
+          { x: 2, y: 0 },
+          { x: 1, y: 0 },
+          { x: 0, y: 0 },
+        ];
+        state.dir = { x: 1, y: 0 };
+        state.nextDir = { x: 1, y: 0 };
+        state.score = 0;
+        state.isGameOver = false;
+        gameOverEl.style.display = "none";
+        scoreEl.textContent = "0";
+        spawnFood();
+        startLoop();
+        draw();
+      }
+
+      function spawnFood() {
+        const emptyCells = [];
+        for (let y = 0; y < state.gridSize; y += 1) {
+          for (let x = 0; x < state.gridSize; x += 1) {
+            if (!state.snake.some((seg) => seg.x === x && seg.y === y)) {
+              emptyCells.push({ x, y });
+            }
+          }
+        }
+        if (emptyCells.length === 0) {
+          return;
+        }
+        const idx = Math.floor(Math.random() * emptyCells.length);
+        state.food = emptyCells[idx];
+      }
+
+      function step() {
+        if (state.isGameOver) return;
+
+        state.dir = state.nextDir;
+        const head = state.snake[0];
+        const next = { x: head.x + state.dir.x, y: head.y + state.dir.y };
+
+        if (hitsWall(next) || hitsSelf(next)) {
+          endGame();
+          return;
+        }
+
+        state.snake.unshift(next);
+
+        if (next.x === state.food.x && next.y === state.food.y) {
+          state.score += 1;
+          scoreEl.textContent = String(state.score);
+          spawnFood();
+        } else {
+          state.snake.pop();
+        }
+
+        draw();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+        drawCell(state.food, "#e63946");
+        state.snake.forEach((seg, idx) => {
+          drawCell(seg, idx === 0 ? "#55efc4" : "#00b894");
+        });
+      }
+
+      function handleInput(event) {
+        const key = event.key;
+        if (key === "ArrowUp") {
+          setDirection({ x: 0, y: -1 });
+        } else if (key === "ArrowDown") {
+          setDirection({ x: 0, y: 1 });
+        } else if (key === "ArrowLeft") {
+          setDirection({ x: -1, y: 0 });
+        } else if (key === "ArrowRight") {
+          setDirection({ x: 1, y: 0 });
+        } else if (key.toLowerCase() === "r") {
+          reset();
+        }
+      }
+
+      function setDirection(next) {
+        // Prevent 180-degree instant reversal.
+        if (state.dir.x + next.x === 0 && state.dir.y + next.y === 0) {
+          return;
+        }
+        state.nextDir = next;
+      }
+
+      function startLoop() {
+        if (state.timerId) {
+          clearInterval(state.timerId);
+        }
+        state.timerId = setInterval(step, state.speedMs);
+      }
+
+      function endGame() {
+        state.isGameOver = true;
+        gameOverEl.style.display = "block";
+      }
+
+      function hitsWall(pos) {
+        return (
+          pos.x < 0 ||
+          pos.y < 0 ||
+          pos.x >= state.gridSize ||
+          pos.y >= state.gridSize
+        );
+      }
+
+      function hitsSelf(pos) {
+        return state.snake.some((seg) => seg.x === pos.x && seg.y === pos.y);
+      }
+
+      function drawGrid() {
+        ctx.strokeStyle = "#222";
+        for (let i = 0; i <= state.gridSize; i += 1) {
+          const p = i * state.cellSize;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, canvas.height);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, p);
+          ctx.lineTo(canvas.width, p);
+          ctx.stroke();
+        }
+      }
+
+      function drawCell(cell, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          cell.x * state.cellSize + 1,
+          cell.y * state.cellSize + 1,
+          state.cellSize - 2,
+          state.cellSize - 2
+        );
+      }
+
+      function clampGridSize(value) {
+        if (Number.isNaN(value)) return 15;
+        return Math.min(20, Math.max(10, value));
+      }
+
+      gridSizeInput.addEventListener("change", initGame);
+      restartBtn.addEventListener("click", reset);
+      window.addEventListener("keydown", handleInput);
+
+      initGame();
+    </script>
+  </body>
+</html>
