@@ -83,7 +83,11 @@
         wrapMode: false,
         timerId: null,
         isGameOver: false,
+        baseSpeedMs: 100,
         speedMs: 100,
+        minSpeedMs: 50,
+        speedStepMs: 10,
+        foodsPerSpeedup: 5,
       };
 
       function initGame() {
@@ -107,6 +111,7 @@
         state.dir = { x: 1, y: 0 };
         state.nextDir = { x: 1, y: 0 };
         state.score = 0;
+        state.speedMs = state.baseSpeedMs;
         state.isGameOver = false;
         gameOverEl.style.display = "none";
         scoreEl.textContent = "0";
@@ -157,6 +162,7 @@
           state.score += 1;
           scoreEl.textContent = String(state.score);
           updateHighScore(state.score);
+          updateSpeed();
           spawnFood();
         } else {
           state.snake.pop();
@@ -202,6 +208,19 @@
           clearInterval(state.timerId);
         }
         state.timerId = setInterval(step, state.speedMs);
+      }
+
+      function updateSpeed() {
+        // Increase speed every N foods, down to a minimum delay.
+        const tiers = Math.floor(state.score / state.foodsPerSpeedup);
+        const nextSpeed = Math.max(
+          state.minSpeedMs,
+          state.baseSpeedMs - tiers * state.speedStepMs
+        );
+        if (nextSpeed !== state.speedMs) {
+          state.speedMs = nextSpeed;
+          startLoop();
+        }
       }
 
       function endGame() {
