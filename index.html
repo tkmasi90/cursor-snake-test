@@ -35,6 +35,18 @@
         font-weight: 600;
         display: none;
       }
+      #paused {
+        color: #f39c12;
+        font-weight: 600;
+        display: none;
+      }
+      .scoreboard {
+        margin-top: 8px;
+      }
+      .scoreboard ol {
+        margin: 4px 0 0 18px;
+        padding: 0;
+      }
       button {
         padding: 4px 10px;
       }
@@ -47,6 +59,8 @@
     <div class="toolbar">
       <div>Score: <span id="score">0</span></div>
       <div>High Score: <span id="highScore">0</span></div>
+      <div>Time: <span id="timer">--</span></div>
+      <div id="paused">Paused</div>
       <label>
         Grid
         <input id="gridSize" type="number" min="10" max="20" value="15" />
@@ -72,6 +86,13 @@
         </select>
       </label>
       <label>
+        Mode
+        <select id="mode">
+          <option value="normal">Normal</option>
+          <option value="time">Time Trial (60s)</option>
+        </select>
+      </label>
+      <label>
         Mute
         <input id="mute" type="checkbox" />
       </label>
@@ -79,22 +100,32 @@
       <div id="gameOver">Game Over</div>
     </div>
     <canvas id="game" width="450" height="450" aria-label="Snake game"></canvas>
+    <div class="scoreboard">
+      <div>Top 5</div>
+      <ol id="scores"></ol>
+    </div>
 
     <script>
       const canvas = document.getElementById("game");
       const ctx = canvas.getContext("2d");
       const scoreEl = document.getElementById("score");
+      const timerEl = document.getElementById("timer");
+      const pausedEl = document.getElementById("paused");
       const gridSizeInput = document.getElementById("gridSize");
       const restartBtn = document.getElementById("restartBtn");
       const gameOverEl = document.getElementById("gameOver");
       const highScoreEl = document.getElementById("highScore");
       const HIGH_SCORE_KEY = "snakeHighScore";
+      const SCORES_KEY = "snakeScores";
+      const MODE_KEY = "snakeMode";
       const THEME_KEY = "snakeTheme";
       const MUTE_KEY = "snakeMute";
       const wrapModeInput = document.getElementById("wrapMode");
       const obstaclesInput = document.getElementById("obstacles");
       const themeInput = document.getElementById("theme");
+      const modeInput = document.getElementById("mode");
       const muteInput = document.getElementById("mute");
+      const scoresEl = document.getElementById("scores");
 
       const THEMES = {
         classic: {
@@ -141,12 +172,18 @@
         audioContext: null,
         audioUnlocked: false,
         timerId: null,
+        timerIntervalId: null,
+        isPaused: false,
         isGameOver: false,
         baseSpeedMs: 100,
         speedMs: 100,
         minSpeedMs: 50,
         speedStepMs: 10,
         foodsPerSpeedup: 5,
+        mode: "normal",
+        timeTrialSeconds: 60,
+        timeLeft: null,
+        scores: [],
       };
 
       function initGame() {
@@ -154,8 +191,12 @@
         highScoreEl.textContent = String(state.highScore);
         state.themeName = getStoredTheme();
         applyTheme(state.themeName);
+        state.mode = getStoredMode();
+        modeInput.value = state.mode;
         state.isMuted = getStoredMute();
         muteInput.checked = state.isMuted;
+        state.scores = getStoredScores();
+        renderScores();
         const size = clampGridSize(parseInt(gridSizeInput.value, 10));
         state.gridSize = size;
         gridSizeInput.value = String(size);
@@ -175,11 +216,14 @@
         state.nextDir = { x: 1, y: 0 };
         state.score = 0;
         state.speedMs = state.baseSpeedMs;
+        state.isPaused = false;
         state.isGameOver = false;
         gameOverEl.style.display = "none";
+        pausedEl.style.display = "none";
         scoreEl.textContent = "0";
         updateHighScore(0);
         state.obstacles = buildObstacles(state.obstacleMode);
+        startTimer();
         spawnFood();
         startLoop();
         draw();
@@ -205,7 +249,7 @@
       }
 
       function step() {
-        if (state.isGameOver) return;
+        if (state.isGameOver || state.isPaused) return;
 
         state.dir = state.nextDir;
         const head = state.snake[0];
@@ -254,7 +298,9 @@
 
       function handleInput(event) {
         const key = event.key;
-        if (key === "ArrowUp") {
+        if (key.toLowerCase() === "p") {
+          togglePause();
+        } else if (key === "ArrowUp") {
           setDirection({ x: 0, y: -1 });
         } else if (key === "ArrowDown") {
           setDirection({ x: 0, y: 1 });
@@ -296,8 +342,11 @@
       }
 
       function endGame() {
+        if (state.isGameOver) return;
         state.isGameOver = true;
         gameOverEl.style.display = "block";
+        pausedEl.style.display = "none";
+        recordScore(state.score);
         playSound("gameOver");
       }
 
@@ -366,8 +415,33 @@
       function updateHighScore(score) {
         if (score <= state.highScore) return;
         state.highScore = score;
-        highScoreEl.textContent = String(score);
+        highScoreEl.textContent = String(state.highScore);
         localStorage.setItem(HIGH_SCORE_KEY, String(score));
+      }
+
+      function getStoredScores() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(SCORES_KEY) || "[]");
+          return Array.isArray(stored) ? stored : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function renderScores() {
+        scoresEl.innerHTML = "";
+        state.scores.slice(0, 5).forEach((score) => {
+          const li = document.createElement("li");
+          li.textContent = String(score);
+          scoresEl.appendChild(li);
+        });
+      }
+
+      function recordScore(score) {
+        if (score <= 0) return;
+        state.scores = [score, ...state.scores].sort((a, b) => b - a).slice(0, 5);
+        localStorage.setItem(SCORES_KEY, JSON.stringify(state.scores));
+        renderScores();
       }
 
       function getStoredTheme() {
@@ -381,6 +455,39 @@
         themeInput.value = state.themeName;
         canvas.style.background = state.theme.background;
         draw();
+      }
+
+      function getStoredMode() {
+        const stored = localStorage.getItem(MODE_KEY);
+        return stored === "time" ? "time" : "normal";
+      }
+
+      function startTimer() {
+        if (state.timerIntervalId) {
+          clearInterval(state.timerIntervalId);
+          state.timerIntervalId = null;
+        }
+        if (state.mode !== "time") {
+          state.timeLeft = null;
+          timerEl.textContent = "--";
+          return;
+        }
+        state.timeLeft = state.timeTrialSeconds;
+        timerEl.textContent = String(state.timeLeft);
+        state.timerIntervalId = setInterval(() => {
+          if (state.isGameOver || state.isPaused) return;
+          state.timeLeft -= 1;
+          timerEl.textContent = String(state.timeLeft);
+          if (state.timeLeft <= 0) {
+            endGame();
+          }
+        }, 1000);
+      }
+
+      function togglePause() {
+        if (state.isGameOver) return;
+        state.isPaused = !state.isPaused;
+        pausedEl.style.display = state.isPaused ? "block" : "none";
       }
 
       function getStoredMute() {
@@ -456,7 +563,7 @@
         }
 
         return obstacles.filter(
-          (obs) => !state.snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
+          (obs) => !state.snake.some((seg) => seg.x === obs.x && obs.y === obs.y)
         );
       }
 
@@ -472,6 +579,11 @@
         const name = event.target.value;
         applyTheme(name);
         localStorage.setItem(THEME_KEY, state.themeName);
+      });
+      modeInput.addEventListener("change", (event) => {
+        state.mode = event.target.value;
+        localStorage.setItem(MODE_KEY, state.mode);
+        reset();
       });
       muteInput.addEventListener("change", (event) => {
         state.isMuted = event.target.checked;
