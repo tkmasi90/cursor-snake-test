@@ -380,11 +380,11 @@
         };
 
         if (mode === "box") {
-          for (let i = mid - 2; i <= mid + 2; i += 1) {
-            add(i, mid - 2);
-            add(i, mid + 2);
-            add(mid - 2, i);
-            add(mid + 2, i);
+          // Solid box prevents unreachable food inside a hollow ring.
+          for (let y = mid - 2; y <= mid + 2; y += 1) {
+            for (let x = mid - 2; x <= mid + 2; x += 1) {
+              add(x, y);
+            }
           }
         } else if (mode === "cross") {
           for (let i = 2; i < size - 2; i += 1) {
