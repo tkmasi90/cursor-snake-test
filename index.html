@@ -63,6 +63,14 @@
           <option value="cross">Cross</option>
         </select>
       </label>
+      <label>
+        Theme
+        <select id="theme">
+          <option value="classic">Classic</option>
+          <option value="neon">Neon</option>
+          <option value="mono">Mono</option>
+        </select>
+      </label>
       <button id="restartBtn">Restart</button>
       <div id="gameOver">Game Over</div>
     </div>
@@ -77,8 +85,37 @@
       const gameOverEl = document.getElementById("gameOver");
       const highScoreEl = document.getElementById("highScore");
       const HIGH_SCORE_KEY = "snakeHighScore";
+      const THEME_KEY = "snakeTheme";
       const wrapModeInput = document.getElementById("wrapMode");
       const obstaclesInput = document.getElementById("obstacles");
+      const themeInput = document.getElementById("theme");
+
+      const THEMES = {
+        classic: {
+          background: "#111",
+          grid: "#222",
+          snakeHead: "#55efc4",
+          snakeBody: "#00b894",
+          food: "#e63946",
+          obstacle: "#6c5ce7",
+        },
+        neon: {
+          background: "#0a0f1f",
+          grid: "#1b2b4a",
+          snakeHead: "#00f5ff",
+          snakeBody: "#00c2ff",
+          food: "#ff3b3b",
+          obstacle: "#f9d423",
+        },
+        mono: {
+          background: "#161616",
+          grid: "#2a2a2a",
+          snakeHead: "#f5f5f5",
+          snakeBody: "#bdbdbd",
+          food: "#ffffff",
+          obstacle: "#8c8c8c",
+        },
+      };
 
       const state = {
         gridSize: 15,
@@ -92,6 +129,8 @@
         wrapMode: false,
         obstacleMode: "none",
         obstacles: [],
+        themeName: "classic",
+        theme: THEMES.classic,
         timerId: null,
         isGameOver: false,
         baseSpeedMs: 100,
@@ -104,6 +143,8 @@
       function initGame() {
         state.highScore = getStoredHighScore();
         highScoreEl.textContent = String(state.highScore);
+        state.themeName = getStoredTheme();
+        applyTheme(state.themeName);
         const size = clampGridSize(parseInt(gridSizeInput.value, 10));
         state.gridSize = size;
         gridSizeInput.value = String(size);
@@ -189,10 +230,13 @@
       function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
-        state.obstacles.forEach((obs) => drawCell(obs, "#6c5ce7"));
-        drawCell(state.food, "#e63946");
+        state.obstacles.forEach((obs) => drawCell(obs, state.theme.obstacle));
+        drawCell(state.food, state.theme.food);
         state.snake.forEach((seg, idx) => {
-          drawCell(seg, idx === 0 ? "#55efc4" : "#00b894");
+          drawCell(
+            seg,
+            idx === 0 ? state.theme.snakeHead : state.theme.snakeBody
+          );
         });
       }
 
@@ -272,7 +316,7 @@
       }
 
       function drawGrid() {
-        ctx.strokeStyle = "#222";
+        ctx.strokeStyle = state.theme.grid;
         for (let i = 0; i <= state.gridSize; i += 1) {
           const p = i * state.cellSize;
           ctx.beginPath();
@@ -313,6 +357,19 @@
         localStorage.setItem(HIGH_SCORE_KEY, String(score));
       }
 
+      function getStoredTheme() {
+        const stored = localStorage.getItem(THEME_KEY);
+        return THEMES[stored] ? stored : "classic";
+      }
+
+      function applyTheme(name) {
+        state.themeName = THEMES[name] ? name : "classic";
+        state.theme = THEMES[state.themeName];
+        themeInput.value = state.themeName;
+        canvas.style.background = state.theme.background;
+        draw();
+      }
+
       function buildObstacles(mode) {
         const obstacles = [];
         const size = state.gridSize;
@@ -337,8 +394,7 @@
         }
 
         return obstacles.filter(
-          (obs) =>
-            !state.snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
+          (obs) => !state.snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
         );
       }
 
@@ -349,6 +405,11 @@
       obstaclesInput.addEventListener("change", (event) => {
         state.obstacleMode = event.target.value;
         reset();
+      });
+      themeInput.addEventListener("change", (event) => {
+        const name = event.target.value;
+        applyTheme(name);
+        localStorage.setItem(THEME_KEY, state.themeName);
       });
       restartBtn.addEventListener("click", reset);
       window.addEventListener("keydown", handleInput);
