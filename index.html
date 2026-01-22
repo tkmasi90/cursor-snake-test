@@ -71,6 +71,10 @@
           <option value="mono">Mono</option>
         </select>
       </label>
+      <label>
+        Mute
+        <input id="mute" type="checkbox" />
+      </label>
       <button id="restartBtn">Restart</button>
       <div id="gameOver">Game Over</div>
     </div>
@@ -86,9 +90,11 @@
       const highScoreEl = document.getElementById("highScore");
       const HIGH_SCORE_KEY = "snakeHighScore";
       const THEME_KEY = "snakeTheme";
+      const MUTE_KEY = "snakeMute";
       const wrapModeInput = document.getElementById("wrapMode");
       const obstaclesInput = document.getElementById("obstacles");
       const themeInput = document.getElementById("theme");
+      const muteInput = document.getElementById("mute");
 
       const THEMES = {
         classic: {
@@ -131,6 +137,9 @@
         obstacles: [],
         themeName: "classic",
         theme: THEMES.classic,
+        isMuted: false,
+        audioContext: null,
+        audioUnlocked: false,
         timerId: null,
         isGameOver: false,
         baseSpeedMs: 100,
@@ -145,6 +154,8 @@
         highScoreEl.textContent = String(state.highScore);
         state.themeName = getStoredTheme();
         applyTheme(state.themeName);
+        state.isMuted = getStoredMute();
+        muteInput.checked = state.isMuted;
         const size = clampGridSize(parseInt(gridSizeInput.value, 10));
         state.gridSize = size;
         gridSizeInput.value = String(size);
@@ -219,6 +230,7 @@
           scoreEl.textContent = String(state.score);
           updateHighScore(state.score);
           updateSpeed();
+          playSound("eat");
           spawnFood();
         } else {
           state.snake.pop();
@@ -286,6 +298,7 @@
       function endGame() {
         state.isGameOver = true;
         gameOverEl.style.display = "block";
+        playSound("gameOver");
       }
 
       function hitsWall(pos) {
@@ -370,6 +383,55 @@
         draw();
       }
 
+      function getStoredMute() {
+        const stored = localStorage.getItem(MUTE_KEY);
+        return stored === "true";
+      }
+
+      function ensureAudio() {
+        if (state.audioContext) return;
+        const AudioContext =
+          window.AudioContext || window.webkitAudioContext || null;
+        if (!AudioContext) return;
+        state.audioContext = new AudioContext();
+      }
+
+      function unlockAudio() {
+        if (state.audioUnlocked) return;
+        ensureAudio();
+        if (!state.audioContext) return;
+        if (state.audioContext.state === "suspended") {
+          state.audioContext.resume();
+        }
+        state.audioUnlocked = true;
+      }
+
+      function playSound(type) {
+        if (state.isMuted) return;
+        ensureAudio();
+        if (!state.audioContext) return;
+        if (state.audioContext.state === "suspended") return;
+
+        const now = state.audioContext.currentTime;
+        const osc = state.audioContext.createOscillator();
+        const gain = state.audioContext.createGain();
+        const settings =
+          type === "eat"
+            ? { freq: 520, duration: 0.08 }
+            : { freq: 180, duration: 0.2 };
+
+        osc.type = "square";
+        osc.frequency.setValueAtTime(settings.freq, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + settings.duration);
+
+        osc.connect(gain);
+        gain.connect(state.audioContext.destination);
+        osc.start(now);
+        osc.stop(now + settings.duration);
+      }
+
       function buildObstacles(mode) {
         const obstacles = [];
         const size = state.gridSize;
@@ -411,8 +473,16 @@
         applyTheme(name);
         localStorage.setItem(THEME_KEY, state.themeName);
       });
+      muteInput.addEventListener("change", (event) => {
+        state.isMuted = event.target.checked;
+        localStorage.setItem(MUTE_KEY, String(state.isMuted));
+      });
       restartBtn.addEventListener("click", reset);
-      window.addEventListener("keydown", handleInput);
+      window.addEventListener("keydown", (event) => {
+        unlockAudio();
+        handleInput(event);
+      });
+      window.addEventListener("mousedown", unlockAudio, { once: true });
 
       initGame();
     </script>
